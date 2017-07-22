@@ -28,6 +28,7 @@ class SessionToken(models.Model):
 
 
 class PostModel(models.Model):
+    email=models.EmailField(UserModel,default="email@email.com")
     user = models.ForeignKey(UserModel)
     image = models.FileField(upload_to='user_images')
     image_url = models.CharField(max_length=255)

@@ -10,11 +10,12 @@ from datetime import timedelta
 from django.utils import timezone
 from clarifai.rest import ClarifaiApp
 from intrest.settings import BASE_DIR
-
+import sendgrid
+from sendgrid.helpers.mail import *
 from imgurpython import ImgurClient
 
 clarafai_api_key='b97f3b583d9149798fbf429dc82277f2'
-
+SENDGRID_API_KEY='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'
 IMGUR_CLIENT_ID = "9c9bf0c17f4ac16"
 IMGUR_CLIENT_SECRET = "cd2f3f14d28677368f0c26ee558ff6841e6e098a"
 # Create your views here.
@@ -30,8 +31,22 @@ def signup_view(request):
             # saving data to DB
             user = UserModel(name=name, password=make_password(password), email=email, username=username)
             user.save()
+            sg = sendgrid.SendGridAPIClient(apikey=SENDGRID_API_KEY)
+            from_email = Email("vivekshivam007@hotmail.com")
+            to_email = Email(form.cleaned_data["email"])
+            subject = "Ready to post!!!"
+            content = Content("text/plain", "Congratulations you made an account on instaclone")
+            mail = Mail(from_email, subject, to_email, content)
+            response = sg.client.mail.send.post(request_body=mail.get())
+            print(response.status_code)
+            print(response.body)
+            print(response.headers)
+
+
+
             return render(request, 'success.html')
             # return redirect('login/')
+
     else:
         form = SignUpForm()
 
@@ -143,6 +158,16 @@ def like_view(request):
             existing_like = LikeModel.objects.filter(post_id=post_id, user=user).first()
             if not existing_like:
                 LikeModel.objects.create(post_id=post_id, user=user)
+                sg = sendgrid.SendGridAPIClient(apikey=SENDGRID_API_KEY)
+                from_email = Email(user.email)
+                to_email = Email(PostModel(user.email))
+                subject = "liked to post!!!"
+                content = Content("text/plain", "you have a like from me")
+                mail = Mail(from_email, subject, to_email, content)
+                response = sg.client.mail.send.post(request_body=mail.get())
+                print(response.status_code)
+                print(response.body)
+                print(response.headers)
             else:
                 existing_like.delete()
             return redirect('/feed/')
@@ -159,6 +184,16 @@ def comment_view(request):
             comment_text = form.cleaned_data.get('comment_text')
             comment = CommentModel.objects.create(user=user, post_id=post_id, comment_text=comment_text)
             comment.save()
+            sg = sendgrid.SendGridAPIClient(apikey=SENDGRID_API_KEY)
+            from_email = Email(user.email)
+            to_email = Email(UserModel.email.filter(PostModel.objects.filter(post_id=post_id).first()))
+            subject = "comment on post!!!"
+            content = Content("text/plain", "you have a comment on a post")
+            mail = Mail(from_email, subject, to_email, content)
+            response = sg.client.mail.send.post(request_body=mail.get())
+            print(response.status_code)
+            print(response.body)
+            print(response.headers)
             return redirect('/feed/')
         else:
             return redirect('/feed/')
@@ -177,12 +212,20 @@ def check_validation(request):
     else:
         return None
 
+def logout_view(request):
+    if request.COOKIES.get('session_token'):
+        session = SessionToken.objects.filter(session_token=request.COOKIES.get('session_token')).first()
+        if session:
+            session.delete()
+            return render(request, 'logout.html')
+    else:
+        return None
 
 def vivek_view(request):
     user = check_validation(request)
     if user:
 
-        posts = PostModel.objects.all().order_by('-created_on')
+        posts = PostModel.objects.filter().order_by('-created_on')
 
         for post in posts:
             existing_like = LikeModel.objects.filter(post_id=post.id, user=user).first()
