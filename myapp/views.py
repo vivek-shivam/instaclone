@@ -1,56 +1,64 @@
-# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-import datetime
-from django.shortcuts import render, redirect
-from forms import SignUpForm, LoginForm, PostForm, LikeForm, CommentForm
-from models import UserModel, SessionToken, PostModel, LikeModel, CommentModel ,CategoryModel
-from django.contrib.auth.hashers import make_password, check_password
-from datetime import timedelta
-from django.utils import timezone
-from clarifai.rest import ClarifaiApp
+from myapp.forms import SignUpForm
+from myapp.forms import LoginForm ,PostForm,LikeForm,CommentForm
+from models import UserModel,SessionToken,PostModel,LikeModel,CommentModel,CategoryModel
+from django.contrib.auth.hashers import make_password,check_password
+from django.shortcuts import render,redirect
 from intrest.settings import BASE_DIR
-import sendgrid
-from sendgrid.helpers.mail import *
 from imgurpython import ImgurClient
+from clarifai import rest
+from clarifai.rest import ClarifaiApp
+from datetime import datetime,timedelta
+from django.utils import timezone
+import sendgrid
 
-clarafai_api_key='b97f3b583d9149798fbf429dc82277f2'
-SENDGRID_API_KEY='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'
-IMGUR_CLIENT_ID = "9c9bf0c17f4ac16"
-IMGUR_CLIENT_SECRET = "cd2f3f14d28677368f0c26ee558ff6841e6e098a"
+from sendgrid.helpers.mail import *
+import ctypes
+#keys not given!!!
+clarafai_api_key=''
+SENDGRID_API_KEY=''
+IMGUR_CLIENT_ID = ""
+IMGUR_CLIENT_SECRET = ""
 # Create your views here.
 
+
 def signup_view(request):
-    if request.method == "POST":
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            username = form.cleaned_data['username']
-            name = form.cleaned_data['name']
-            email = form.cleaned_data['email']
-            password = form.cleaned_data['password']
-            # saving data to DB
-            user = UserModel(name=name, password=make_password(password), email=email, username=username)
-            user.save()
-            sg = sendgrid.SendGridAPIClient(apikey=SENDGRID_API_KEY)
-            from_email = Email("vivekshivam007@hotmail.com")
-            to_email = Email(form.cleaned_data["email"])
-            subject = "Ready to post!!!"
-            content = Content("text/plain", "Congratulations you made an account on instaclone")
-            mail = Mail(from_email, subject, to_email, content)
-            response = sg.client.mail.send.post(request_body=mail.get())
-            print(response.status_code)
-            print(response.body)
-            print(response.headers)
+  today = datetime.now()
+  if request.method == "POST":
+      signup_form=SignUpForm(request.POST)
+      if signup_form.is_valid():
+          username = signup_form.cleaned_data['username']
+          name = signup_form.cleaned_data['name']
+          email = signup_form.cleaned_data['email']
+          password = signup_form.cleaned_data['password']
+          if set('abcdefghijklmnopqrstuvwxyz').intersection(name) and set('abcdefghijklmnopqrstuvwxyz@_1234567890').intersection(username):
+              if len(username) > 4 and len(password) > 5:  #and username==""== False and username.isdigit() == False:
+                  user = UserModel(name=name, password=make_password(password), email=email, username=username)
+                  user.save()
+                  sg = sendgrid.SendGridAPIClient(apikey=(SENDGRID_API_KEY))
+                  from_email = Email("vivekshivam007@gmail.com")
+                  to_email = Email(signup_form.cleaned_data['email'])
+                  subject = "Welcome "
+                  content = Content("text/plain", "Thank you for signing up ")
+                  mail = Mail(from_email, subject, to_email, content)
+                  response = sg.client.mail.send.post(request_body=mail.get())
+                  print(response.status_code)
+                  print(response.body)
+                  print(response.headers)
+                  ctypes.windll.user32.MessageBoxW(0, u"successfully signed up", u"success", 0)
+                  return render(request, 'login.html')
+              else:
+                  ctypes.windll.user32.MessageBoxW(0, u"invalid enteries. please try again", u"Error", 0)
+                  signup_form= SignUpForm()
+
+          else:
+              ctypes.windll.user32.MessageBoxW(0, u"invalid name/username", u"error", 0)
 
 
+  elif request.method == 'GET':
+      signup_form= SignUpForm()
+  return render(request, 'index.html', { 'date_to_show':today, 'form':signup_form})
 
-            return render(request, 'success.html')
-            # return redirect('login/')
-
-    else:
-        form = SignUpForm()
-
-    return render(request, 'index.html', {'form': form})
 
 
 def login_view(request):
@@ -71,14 +79,15 @@ def login_view(request):
                     response.set_cookie(key='session_token', value=token.session_token)
                     return response
                 else:
+                    ctypes.windll.user32.MessageBoxW(0, u"invalid username or password", u"Error", 0)
                     response_data['message'] = 'Incorrect Password! Please try again!'
+            else:
+                ctypes.windll.user32.MessageBoxW(0, u"invalid username/password", u"Error", 0)
 
     elif request.method == 'GET':
         form = LoginForm()
-
     response_data['form'] = form
     return render(request, 'login.html', response_data)
-
 
 def add_category(post):
     app = ClarifaiApp(api_key=clarafai_api_key)
@@ -155,25 +164,29 @@ def like_view(request):
         form = LikeForm(request.POST)
         if form.is_valid():
             post_id = form.cleaned_data.get('post').id
+
             existing_like = LikeModel.objects.filter(post_id=post_id, user=user).first()
             if not existing_like:
-                LikeModel.objects.create(post_id=post_id, user=user)
-                sg = sendgrid.SendGridAPIClient(apikey=SENDGRID_API_KEY)
-                from_email = Email(user.email)
-                to_email = Email(PostModel(user.email))
-                subject = "liked to post!!!"
-                content = Content("text/plain", "you have a like from me")
+                like = LikeModel.objects.create(post_id=post_id, user=user)
+                sg = sendgrid.SendGridAPIClient(apikey=(SENDGRID_API_KEY))
+                from_email = Email("vivekshivam007@gmail.com")
+                to_email = Email(like.post.user.email)
+                subject = "like on your post!!"
+                content = Content("text/plain", "someone just liked your post")
                 mail = Mail(from_email, subject, to_email, content)
                 response = sg.client.mail.send.post(request_body=mail.get())
                 print(response.status_code)
                 print(response.body)
                 print(response.headers)
+                ctypes.windll.user32.MessageBoxW(0, u"liked successfully", u"SUCCESS", 0)
             else:
                 existing_like.delete()
-            return redirect('/feed/')
+                ctypes.windll.user32.MessageBoxW(0, u"unlike successfully", u"SUCCESS", 0)
+
+            return redirect('feed/')
+
     else:
         return redirect('/login/')
-
 
 def comment_view(request):
     user = check_validation(request)
@@ -184,17 +197,18 @@ def comment_view(request):
             comment_text = form.cleaned_data.get('comment_text')
             comment = CommentModel.objects.create(user=user, post_id=post_id, comment_text=comment_text)
             comment.save()
-            sg = sendgrid.SendGridAPIClient(apikey=SENDGRID_API_KEY)
-            from_email = Email(user.email)
-            to_email = Email(UserModel.email.filter(PostModel.objects.filter(post_id=post_id).first()))
-            subject = "comment on post!!!"
-            content = Content("text/plain", "you have a comment on a post")
+            sg = sendgrid.SendGridAPIClient(apikey=(SENDGRID_API_KEY))
+            from_email = Email("vivekshivam007@gmail.com")
+            to_email = Email(comment.post.user.email)
+            subject = "comment on your post!!"
+            content = Content("text/plain", "someone just commented on your post")
             mail = Mail(from_email, subject, to_email, content)
             response = sg.client.mail.send.post(request_body=mail.get())
             print(response.status_code)
             print(response.body)
             print(response.headers)
-            return redirect('/feed/')
+            ctypes.windll.user32.MessageBoxW(0, u"comment posted successfully", u"SUCCESS", 0)
+            return redirect('/feed/    ')
         else:
             return redirect('/feed/')
     else:
