@@ -16,10 +16,10 @@ from sendgrid.helpers.mail import *
 import ctypes
 #keys not given!!!
 
-clarafai_api_key='b97f3b583d9149798fbf429dc82277f2'
-SENDGRID_API_KEY='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'
-IMGUR_CLIENT_ID = "9c9bf0c17f4ac16"
-IMGUR_CLIENT_SECRET = "cd2f3f14d28677368f0c26ee558ff6841e6e098a"
+clarafai_api_key=''
+SENDGRID_API_KEY=''
+IMGUR_CLIENT_ID = ""
+IMGUR_CLIENT_SECRET = ""
 
 def signup_view(request):
   today = datetime.now()
